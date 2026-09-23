@@ -90,14 +90,10 @@ class OtpRepository:
         conn = get_connection()
         cursor = conn.cursor()
         cursor.execute(
-            """
-            SELECT * FROM OTP
-            WHERE user_id = ? AND purpose = ?
-            ORDER BY created_at DESC
-            LIMIT 1
-            """,
-            (user_id, purpose),
-        )
+           "SELECT * FROM OTP WHERE user_id = ? AND purpose = ?" \
+           " ORDER BY otp_id DESC LIMIT 1"
+           , (user_id, purpose)
+           )
         row = cursor.fetchone()
         conn.close()
         return Otp.from_row(row) if row else None

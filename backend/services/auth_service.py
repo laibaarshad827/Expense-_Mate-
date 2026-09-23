@@ -1,11 +1,14 @@
 """
 Auth business logic: registration, login, OTP generation/verification,
 forgot/update password, update email.
+
+Function names, parameters, and return format match the frontend's
+contract file (backend_interface.py) exactly:
+    (success: bool, message: str, data: dict | None)
 """
 
 import re
 import random
-import string
 import bcrypt
 from datetime import datetime, timedelta
 
@@ -16,120 +19,173 @@ OTP_VALIDITY_MINUTES = 10
 
 EMAIL_REGEX = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
+_user_repo = UserRepository()
+_otp_repo = OtpRepository()
 
-class AuthError(Exception):
-    pass
+# Very simple "session" - mirrors the mock's _current_user dict
+_current_user = {}
 
 
-class AuthService:
+# ---------------------------------------------------------------------------
+# Validation helpers
+# ---------------------------------------------------------------------------
 
-    def __init__(self):
-        self.user_repo = UserRepository()
-        self.otp_repo = OtpRepository()
+def is_valid_email(email: str) -> bool:
+    return bool(EMAIL_REGEX.match(email or ""))
 
-    def _validate_email(self, email: str) -> None:
-        if not email or not EMAIL_REGEX.match(email):
-            raise AuthError("Please enter a valid email address.")
 
-    def _validate_password(self, password: str) -> None:
-        if not password or len(password) < 8:
-            raise AuthError("Password must be at least 8 characters long.")
-        if not any(c.isdigit() for c in password):
-            raise AuthError("Password must contain at least one number.")
-        if not any(c.isalpha() for c in password):
-            raise AuthError("Password must contain at least one letter.")
+def is_valid_password(password: str) -> bool:
+    return bool(password) and len(password) >= 6
 
-    def _hash_password(self, password: str) -> str:
-        return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
-    def _verify_password(self, password: str, password_hash: str) -> bool:
-        return bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("utf-8"))
+def _hash_password(password: str) -> str:
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
-    def _generate_otp_code(self) -> str:
-        return "".join(random.choices(string.digits, k=OTP_LENGTH))
 
-    def generate_otp(self, user_id: int, purpose: str) -> str:
-        code = self._generate_otp_code()
-        expires_at = (datetime.now() + timedelta(minutes=OTP_VALIDITY_MINUTES)).isoformat()
-        self.otp_repo.create_otp(user_id, code, purpose, expires_at)
-        return code
+def _verify_password(password: str, password_hash: str) -> bool:
+    return bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("utf-8"))
 
-    def verify_otp(self, user_id: int, purpose: str, code: str) -> None:
-        otp = self.otp_repo.get_latest_otp(user_id, purpose)
-        if not otp:
-            raise AuthError("No OTP found. Please request a new one.")
-        if otp.is_used:
-            raise AuthError("This OTP has already been used.")
-        if datetime.fromisoformat(otp.expires_at) < datetime.now():
-            raise AuthError("This OTP has expired. Please request a new one.")
-        if otp.otp_code != code:
-            raise AuthError("Incorrect OTP. Please try again.")
 
-        self.otp_repo.mark_used(otp.otp_id)
+def _generate_otp_code() -> str:
+    return f"{random.randint(100000, 999999)}"
 
-    def register(self, full_name: str, email: str, password: str) -> int:
-        if not full_name or not full_name.strip():
-            raise AuthError("Full name is required.")
-        self._validate_email(email)
-        self._validate_password(password)
 
-        if self.user_repo.get_by_email(email):
-            raise AuthError("An account with this email already exists.")
+# ---------------------------------------------------------------------------
+# FR-1 / FR-2: Account creation, login, logout
+# ---------------------------------------------------------------------------
 
-        password_hash = self._hash_password(password)
-        user_id = self.user_repo.create_user(full_name.strip(), email, password_hash)
+def register_user(username: str, email: str, password: str, confirm_password: str):
+    if not username or not username.strip():
+        return False, "Username cannot be empty.", None
+    if not is_valid_email(email):
+        return False, "Please enter a valid email address.", None
+    if not is_valid_password(password):
+        return False, "Password must be at least 6 characters long.", None
+    if password != confirm_password:
+        return False, "Passwords do not match.", None
+    if _user_repo.get_by_email(email):
+        return False, "An account with this email already exists.", None
 
-        self.generate_otp(user_id, purpose="REGISTER")
-        return user_id
+    password_hash = _hash_password(password)
+    user_id = _user_repo.create_user(username.strip(), email, password_hash)
 
-    def verify_registration_otp(self, user_id: int, code: str) -> None:
-        self.verify_otp(user_id, purpose="REGISTER", code=code)
-        self.user_repo.set_verified(user_id)
+    send_otp(email)
+    return True, "Account created. Please verify the OTP sent to your email.", {"email": email}
 
-    def login(self, email: str, password: str):
-        self._validate_email(email)
 
-        user = self.user_repo.get_by_email(email)
-        if not user:
-            raise AuthError("No account found with this email.")
+def send_otp(email: str):
+    user = _user_repo.get_by_email(email)
+    if user is None:
+        return False, "No account found with this email.", None
 
-        if not self._verify_password(password, user.password_hash):
-            raise AuthError("Incorrect password.")
+    otp_code = _generate_otp_code()
+    expires_at = (datetime.now() + timedelta(minutes=OTP_VALIDITY_MINUTES)).isoformat()
+    _otp_repo.create_otp(user.user_id, otp_code, "GENERAL", expires_at)
 
-        if not user.is_verified:
-            raise AuthError("Please verify your account via OTP before logging in.")
+    # In the real deployed app this would actually email the OTP.
+    print(f"[MOCK OTP] OTP for {email} is: {otp_code}")
+    return True, "OTP sent successfully. Check console (mock mode).", None
 
-        return user
 
-    def request_password_reset(self, email: str) -> int:
-        self._validate_email(email)
-        user = self.user_repo.get_by_email(email)
-        if not user:
-            raise AuthError("No account found with this email.")
+def verify_otp(email: str, otp_code: str):
+    if not otp_code or not otp_code.strip():
+        return False, "Please enter the OTP.", None
 
-        self.generate_otp(user.user_id, purpose="RESET_PASSWORD")
-        return user.user_id
+    user = _user_repo.get_by_email(email)
+    if user is None:
+        return False, "No account found with this email.", None
 
-    def reset_password(self, user_id: int, otp_code: str, new_password: str) -> None:
-        self.verify_otp(user_id, purpose="RESET_PASSWORD", code=otp_code)
-        self._validate_password(new_password)
-        new_hash = self._hash_password(new_password)
-        self.user_repo.update_password(user_id, new_hash)
+    otp = _otp_repo.get_latest_otp(user.user_id, "GENERAL")
+    if otp is None:
+        return False, "No OTP was requested for this email.", None
+    if otp.is_used:
+        return False, "This OTP has already been used.", None
+    if datetime.fromisoformat(otp.expires_at) < datetime.now():
+        return False, "This OTP has expired. Please request a new one.", None
+    if otp.otp_code != otp_code.strip():
+        return False, "Incorrect OTP. Please try again.", None
 
-    def update_password(self, user_id: int, current_password: str, new_password: str) -> None:
-        user = self.user_repo.get_by_id(user_id)
-        if not user:
-            raise AuthError("User not found.")
+    _otp_repo.mark_used(otp.otp_id)
+    _user_repo.set_verified(user.user_id)
+    return True, "OTP verified successfully.", None
 
-        if not self._verify_password(current_password, user.password_hash):
-            raise AuthError("Current password is incorrect.")
 
-        self._validate_password(new_password)
-        new_hash = self._hash_password(new_password)
-        self.user_repo.update_password(user_id, new_hash)
+def login_user(email: str, password: str):
+    if not is_valid_email(email):
+        return False, "Please enter a valid email address.", None
 
-    def update_email(self, user_id: int, new_email: str) -> None:
-        self._validate_email(new_email)
-        if self.user_repo.get_by_email(new_email):
-            raise AuthError("This email is already in use.")
-        self.user_repo.update_email(user_id, new_email)
+    user = _user_repo.get_by_email(email)
+    if user is None:
+        return False, "No account found with this email.", None
+
+    if not _verify_password(password, user.password_hash):
+        return False, "Incorrect password.", None
+
+    _current_user["email"] = email
+    return True, "Login successful.", {"username": user.full_name, "email": email}
+
+
+def logout_user():
+    _current_user.clear()
+    return True, "Logged out successfully.", None
+
+
+# ---------------------------------------------------------------------------
+# Forgot / Reset password
+# ---------------------------------------------------------------------------
+
+def request_password_reset(email: str):
+    if _user_repo.get_by_email(email) is None:
+        return False, "No account found with this email.", None
+    return send_otp(email)
+
+
+def reset_password(email: str, otp_code: str, new_password: str, confirm_password: str):
+    ok, msg, _ = verify_otp(email, otp_code)
+    if not ok:
+        return False, msg, None
+
+    if not is_valid_password(new_password):
+        return False, "Password must be at least 6 characters long.", None
+    if new_password != confirm_password:
+        return False, "Passwords do not match.", None
+
+    user = _user_repo.get_by_email(email)
+    _user_repo.update_password(user.user_id, _hash_password(new_password))
+    return True, "Password reset successfully. You can now log in.", None
+
+
+# ---------------------------------------------------------------------------
+# Update password / update email (while logged in)
+# ---------------------------------------------------------------------------
+
+def update_password(email: str, old_password: str, new_password: str, confirm_password: str):
+    user = _user_repo.get_by_email(email)
+    if user is None:
+        return False, "User not found.", None
+
+    if not _verify_password(old_password, user.password_hash):
+        return False, "Current password is incorrect.", None
+
+    if not is_valid_password(new_password):
+        return False, "New password must be at least 6 characters long.", None
+    if new_password != confirm_password:
+        return False, "New passwords do not match.", None
+
+    _user_repo.update_password(user.user_id, _hash_password(new_password))
+    return True, "Password updated successfully.", None
+
+
+def update_email(old_email: str, new_email: str, otp_code: str):
+    if not is_valid_email(new_email):
+        return False, "Please enter a valid new email address.", None
+    if _user_repo.get_by_email(new_email):
+        return False, "This email is already in use.", None
+
+    ok, msg, _ = verify_otp(old_email, otp_code)
+    if not ok:
+        return False, msg, None
+
+    user = _user_repo.get_by_email(old_email)
+    _user_repo.update_email(user.user_id, new_email)
+    return True, "Email updated successfully.", {"email": new_email}

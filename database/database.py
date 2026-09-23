@@ -46,8 +46,66 @@ def init_db() -> None:
 
     conn.commit()
     conn.close()
-
+def add_day2_tables():
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS CATEGORY (
+            category_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            type TEXT NOT NULL CHECK (type IN ('income', 'expense')),
+            is_default INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            UNIQUE(name, type)
+        )
+    """)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS "TRANSACTION" (
+            transaction_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            type TEXT NOT NULL CHECK (type IN ('income', 'expense')),
+            amount REAL NOT NULL CHECK (amount > 0),
+            category TEXT NOT NULL,
+            transaction_date TEXT NOT NULL,
+            note TEXT,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            FOREIGN KEY (user_id) REFERENCES USER (user_id) ON DELETE CASCADE
+        )
+    """)
+    cursor.execute("SELECT COUNT(*) as cnt FROM CATEGORY WHERE is_default = 1")
+    if cursor.fetchone()["cnt"] == 0:
+        defaults = [
+            ("Salary", "income"), ("Freelance", "income"), ("Business", "income"),
+            ("Gift", "income"), ("Other Income", "income"),
+            ("Food", "expense"), ("Rent", "expense"), ("Transport", "expense"),
+            ("Utilities", "expense"), ("Shopping", "expense"), ("Health", "expense"),
+            ("Education", "expense"), ("Entertainment", "expense"), ("Other Expense", "expense"),
+        ]
+        cursor.executemany(
+            "INSERT INTO CATEGORY (name, type, is_default) VALUES (?, ?, 1)", defaults
+        )
+    conn.commit()
+    conn.close()
+def add_day3_tables():
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS BUDGET (
+            budget_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            category TEXT NOT NULL,
+            limit_amount REAL NOT NULL CHECK (limit_amount > 0),
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+            UNIQUE(user_id, category),
+            FOREIGN KEY (user_id) REFERENCES USER (user_id) ON DELETE CASCADE
+        )
+    """)
+    conn.commit()
+    conn.close()
 
 if __name__ == "__main__":
     init_db()
+    add_day2_tables()
+    add_day3_tables()
     print(f"Database initialized at {DB_PATH}")
