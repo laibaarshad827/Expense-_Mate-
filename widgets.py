@@ -156,8 +156,8 @@ NAV_ITEMS = (
     ("Dashboard", "🏠", "DashboardScreen", True),
     ("Transactions", "💳", "TransactionsScreen", True),
     ("Budgets", "📊", "BudgetsScreen", True),
-    ("Savings", "🎯", None, False),
-    ("Reports", "📁", None, False),
+    ("Savings", "🎯", "SavingsScreen", True),
+    ("Reports", "📁", "ReportsScreen", True),
 )
 
 
@@ -452,3 +452,82 @@ def make_budget_row(parent, status, on_set_budget):
     ctk.CTkLabel(inner, text=note, font=theme.FONT_SMALL,
                  text_color=theme.COLOR_DANGER if over else theme.COLOR_TEXT_MUTED, anchor="w").pack(fill="x")
     return card
+# ---------------------------------------------------------------------------
+# Savings goals (Day 4)
+# ---------------------------------------------------------------------------
+
+def make_goal_card(parent, goal, on_contribute, on_edit, on_delete):
+    """One savings goal card: name / target / saved + progress bar, plus
+    Contribute, Edit, and Delete buttons. `goal` is one dict from
+    backend.get_savings_goals()."""
+    card = ctk.CTkFrame(parent, fg_color=theme.COLOR_CARD_BG, corner_radius=12,
+                         border_width=1, border_color=theme.COLOR_BORDER)
+    card.pack(fill="x", pady=5)
+
+    inner = ctk.CTkFrame(card, fg_color="transparent")
+    inner.pack(fill="x", padx=18, pady=14)
+
+    top = ctk.CTkFrame(inner, fg_color="transparent")
+    top.pack(fill="x")
+
+    ctk.CTkLabel(
+        top, text=goal["goal_name"], font=theme.FONT_FIELD_LABEL,
+        text_color=theme.COLOR_TEXT_DARK, anchor="w",
+    ).pack(side="left")
+
+    if goal["deadline"]:
+        make_pill(top, f"Due {goal['deadline']}", theme.COLOR_WARNING_LIGHT, theme.COLOR_WARNING).pack(side="left", padx=(10, 0))
+    if goal["is_complete"]:
+        make_pill(top, "Complete!", theme.COLOR_INCOME_LIGHT, theme.COLOR_INCOME).pack(side="left", padx=(10, 0))
+
+    btn_row = ctk.CTkFrame(top, fg_color="transparent")
+    btn_row.pack(side="right")
+    make_icon_button(btn_row, "💰", lambda: on_contribute(goal), theme.COLOR_PRIMARY, theme.COLOR_PRIMARY_HOVER).pack(side="left", padx=3)
+    make_icon_button(btn_row, "✏️", lambda: on_edit(goal), theme.COLOR_ACCENT, "#B8862F").pack(side="left", padx=3)
+    make_icon_button(btn_row, "🗑️", lambda: on_delete(goal), theme.COLOR_DANGER, theme.COLOR_DANGER_HOVER).pack(side="left", padx=3)
+
+    stats_row = ctk.CTkFrame(inner, fg_color="transparent")
+    stats_row.pack(fill="x", pady=(10, 6))
+    for label, value, color in (
+        ("Target", f"Rs. {goal['target_amount']:,.2f}", theme.COLOR_TEXT_DARK),
+        ("Saved", f"Rs. {goal['current_amount']:,.2f}", theme.COLOR_INCOME),
+        ("Remaining", f"Rs. {goal['remaining']:,.2f}", theme.COLOR_TEXT_DARK),
+    ):
+        col = ctk.CTkFrame(stats_row, fg_color="transparent")
+        col.pack(side="left", padx=(0, 30))
+        ctk.CTkLabel(col, text=label, font=theme.FONT_SMALL, text_color=theme.COLOR_TEXT_MUTED, anchor="w").pack(anchor="w")
+        ctk.CTkLabel(col, text=value, font=theme.FONT_FIELD_LABEL, text_color=color, anchor="w").pack(anchor="w")
+
+    bar = ctk.CTkProgressBar(inner, progress_color=theme.COLOR_INCOME, height=10, corner_radius=5)
+    bar.set(min(goal["percent"] / 100, 1.0))
+    bar.pack(fill="x", pady=(2, 4))
+
+    ctk.CTkLabel(
+        inner, text=f"{goal['percent']}% saved", font=theme.FONT_SMALL,
+        text_color=theme.COLOR_TEXT_MUTED, anchor="w",
+    ).pack(fill="x")
+
+    return card
+# ---------------------------------------------------------------------------
+# Reports (Day 5)
+# ---------------------------------------------------------------------------
+
+def make_category_bar_row(parent, category, amount, max_amount, color):
+    """One horizontal bar row for the category breakdown chart on the
+    Reports screen — a label + proportional colored bar + amount."""
+    row = ctk.CTkFrame(parent, fg_color="transparent")
+    row.pack(fill="x", pady=6)
+
+    top = ctk.CTkFrame(row, fg_color="transparent")
+    top.pack(fill="x")
+    ctk.CTkLabel(
+        top, text=category, font=theme.FONT_FIELD_LABEL, text_color=theme.COLOR_TEXT_DARK, anchor="w"
+    ).pack(side="left")
+    ctk.CTkLabel(
+        top, text=f"Rs. {amount:,.2f}", font=theme.FONT_FIELD_LABEL, text_color=color, anchor="e"
+    ).pack(side="right")
+
+    bar = ctk.CTkProgressBar(row, progress_color=color, height=10, corner_radius=5)
+    bar.set(amount / max_amount if max_amount else 0)
+    bar.pack(fill="x", pady=(4, 0))
+    return row

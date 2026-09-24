@@ -104,8 +104,28 @@ def add_day3_tables():
     conn.commit()
     conn.close()
 
+
+def add_day4_tables():
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS SAVINGS_GOAL (
+            goal_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            goal_name TEXT NOT NULL,
+            target_amount REAL NOT NULL CHECK (target_amount > 0),
+            current_amount REAL NOT NULL DEFAULT 0,
+            deadline TEXT,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            FOREIGN KEY (user_id) REFERENCES USER (user_id) ON DELETE CASCADE
+        )
+    """)
+    conn.commit()
+    conn.close()
+
 if __name__ == "__main__":
     init_db()
     add_day2_tables()
     add_day3_tables()
+    add_day4_tables()
     print(f"Database initialized at {DB_PATH}")

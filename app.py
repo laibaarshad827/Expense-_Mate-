@@ -21,6 +21,8 @@ from screens.update_email_screen import UpdateEmailScreen
 from screens.dashboard_screen import DashboardScreen
 from screens.transactions_screen import TransactionsScreen
 from screens.budgets_screen import BudgetsScreen
+from screens.savings_screen import SavingsScreen
+from screens.reports_screen import ReportsScreen
 
 import theme
 
@@ -62,6 +64,8 @@ class ExpenseMateApp(ctk.CTk):
             DashboardScreen,
             TransactionsScreen,
             BudgetsScreen,
+            SavingsScreen,
+            ReportsScreen,
         )
 
         for ScreenClass in screen_classes:
