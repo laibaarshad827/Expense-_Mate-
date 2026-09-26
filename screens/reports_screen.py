@@ -59,12 +59,19 @@ class ReportsScreen(ctk.CTkFrame):
         inner = ctk.CTkFrame(bar, fg_color="transparent")
         inner.pack(fill="x", padx=18, pady=14)
 
-        start_wrap, self.start_entry = widgets.make_field(inner, "From", "YYYY-MM-DD")
+        # Row 1: date range
+        date_row = ctk.CTkFrame(inner, fg_color="transparent")
+        date_row.pack(fill="x", pady=(0, 12))
+        start_wrap, self.start_entry = widgets.make_field(date_row, "From", "YYYY-MM-DD")
         start_wrap.pack(side="left", padx=(0, 14))
-        end_wrap, self.end_entry = widgets.make_field(inner, "To", "YYYY-MM-DD")
-        end_wrap.pack(side="left", padx=(0, 14))
+        end_wrap, self.end_entry = widgets.make_field(date_row, "To", "YYYY-MM-DD")
+        end_wrap.pack(side="left")
 
-        type_col = ctk.CTkFrame(inner, fg_color="transparent")
+        # Row 2: type, category, apply
+        filter_row = ctk.CTkFrame(inner, fg_color="transparent")
+        filter_row.pack(fill="x")
+
+        type_col = ctk.CTkFrame(filter_row, fg_color="transparent")
         type_col.pack(side="left", padx=(0, 14))
         widgets.make_field_label(type_col, "Type").pack(anchor="w", pady=(0, 4))
         self.type_menu, self.type_var = widgets.make_dropdown(
@@ -72,15 +79,15 @@ class ReportsScreen(ctk.CTkFrame):
         )
         self.type_menu.pack()
 
-        cat_col = ctk.CTkFrame(inner, fg_color="transparent")
+        cat_col = ctk.CTkFrame(filter_row, fg_color="transparent")
         cat_col.pack(side="left", padx=(0, 14))
         widgets.make_field_label(cat_col, "Category").pack(anchor="w", pady=(0, 4))
         self.cat_menu, self.cat_var = widgets.make_dropdown(cat_col, ["All"], width=160)
         self.cat_menu.pack()
 
-        apply_col = ctk.CTkFrame(inner, fg_color="transparent")
+        apply_col = ctk.CTkFrame(filter_row, fg_color="transparent")
         apply_col.pack(side="left", padx=(14, 0))
-        ctk.CTkLabel(apply_col, text="", font=theme.FONT_SMALL).pack(pady=(0, 4))  # spacer to align button
+        ctk.CTkLabel(apply_col, text="", font=theme.FONT_SMALL).pack(pady=(0, 4))
         apply_button = widgets.make_primary_button(apply_col, "Apply", self._refresh)
         apply_button.configure(width=110, height=theme.ENTRY_HEIGHT)
         apply_button.pack()
