@@ -9,7 +9,12 @@ CTkFrame; only one is shown at a time, stacked in the same window using
 .tkraise() — this is the standard multi-frame Tkinter/CTk pattern.
 """
 
+import time
+
 import customtkinter as ctk
+
+import theme
+import widgets
 
 from screens.login_screen import LoginScreen
 from screens.register_screen import RegisterScreen
@@ -23,8 +28,6 @@ from screens.transactions_screen import TransactionsScreen
 from screens.budgets_screen import BudgetsScreen
 from screens.savings_screen import SavingsScreen
 from screens.reports_screen import ReportsScreen
-
-import theme
 
 ctk.set_appearance_mode("light")
 ctk.set_default_color_theme("green")
@@ -49,8 +52,23 @@ class ExpenseMateApp(ctk.CTk):
             "current_user": None,    # set after successful login
         }
 
+        # Build the (still-empty) container FIRST...
         container = ctk.CTkFrame(self, fg_color="transparent")
         container.pack(fill="both", expand=True)
+
+        # ...THEN create the "Loading..." overlay. In Tkinter a newly
+        # created sibling widget is stacked on top of siblings that already
+        # exist, so creating the overlay after `container` (rather than
+        # before it) is what actually keeps it on top of `container` and
+        # everything built inside it below. All 12 screens are constructed
+        # one after another and none of that is instant, so without the
+        # overlay genuinely on top the user briefly sees each screen
+        # mid-construction. It's removed once Login is ready -- nothing
+        # about how screens work or navigate changes.
+        loading_screen = self._build_loading_screen()
+        loading_screen.place(relx=0, rely=0, relwidth=1, relheight=1)
+        self.update()  # force the overlay to actually paint right now,
+                        # before the synchronous screen-building below runs
 
         self.frames = {}
         screen_classes = (
@@ -77,6 +95,45 @@ class ExpenseMateApp(ctk.CTk):
         container.grid_columnconfigure(0, weight=1)
 
         self.show_screen("LoginScreen")
+
+        # CustomTkinter finishes some of its own drawing (rounded corners,
+        # images) via a callback queued slightly *after* a widget is
+        # created, not instantly. The whole build above just ran as one
+        # uninterrupted burst with no turn of the event loop in between, so
+        # those finishing-touch callbacks are still backed up for all 12
+        # screens' worth of widgets. Pump the event loop a few times, with a
+        # tiny real wait each time so those short delays actually become
+        # due, so all of that catches up while still hidden behind the
+        # overlay -- instead of finishing just after it's removed.
+        for _ in range(6):
+            self.update()
+            time.sleep(0.02)
+
+        # Login is fully built AND fully drawn -> safe to remove the
+        # overlay now and reveal it.
+        loading_screen.destroy()
+
+    def _build_loading_screen(self):
+        """A minimal full-window overlay shown only while screens are
+        being constructed at startup. Purely cosmetic -- it isn't one of
+        the app.frames screens and isn't part of navigation."""
+        overlay = ctk.CTkFrame(self, fg_color=theme.COLOR_BG_APP, corner_radius=0)
+
+        wrapper = ctk.CTkFrame(overlay, fg_color="transparent")
+        wrapper.place(relx=0.5, rely=0.5, anchor="center")
+
+        try:
+            logo_image = widgets.get_logo_image(size=72)
+            ctk.CTkLabel(wrapper, image=logo_image, text="").pack(pady=(0, 14))
+        except Exception:
+            pass  # the logo is a nice-to-have; never block startup on it
+
+        ctk.CTkLabel(
+            wrapper, text="Loading ExpenseMate...",
+            font=theme.FONT_SECTION_TITLE, text_color=theme.COLOR_TEXT_DARK,
+        ).pack()
+
+        return overlay
 
     def _open_maximized(self):
         """Open the window filling the screen. 'zoomed' works on Windows;

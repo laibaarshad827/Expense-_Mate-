@@ -51,7 +51,6 @@ class ReportsScreen(ctk.CTkFrame):
     # -----------------------------------------------------------------
     # Filters
     # -----------------------------------------------------------------
-
     def _build_filters(self):
         bar = ctk.CTkFrame(self.content, fg_color=theme.COLOR_CARD_BG, corner_radius=12,
                             border_width=1, border_color=theme.COLOR_BORDER)
@@ -91,7 +90,6 @@ class ReportsScreen(ctk.CTkFrame):
         apply_button = widgets.make_primary_button(apply_col, "Apply", self._refresh)
         apply_button.configure(width=110, height=theme.ENTRY_HEIGHT)
         apply_button.pack()
-
     def _refresh_category_options(self):
         cats = ["All"] + backend.get_categories("income") + backend.get_categories("expense")
         self.cat_menu.configure(values=cats)
