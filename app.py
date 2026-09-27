@@ -29,7 +29,12 @@ from screens.budgets_screen import BudgetsScreen
 from screens.savings_screen import SavingsScreen
 from screens.reports_screen import ReportsScreen
 
-ctk.set_appearance_mode("light")
+# "system" makes the app open in whatever light/dark mode the OS is
+# currently set to (adaptive maintenance: the UI now adapts to the user's
+# actual display environment instead of assuming a fixed light theme).
+# The toggle built in ExpenseMateApp._build_theme_toggle() lets the user
+# override this manually at any time.
+ctk.set_appearance_mode("system")
 ctk.set_default_color_theme("green")
 
 
@@ -112,6 +117,32 @@ class ExpenseMateApp(ctk.CTk):
         # Login is fully built AND fully drawn -> safe to remove the
         # overlay now and reveal it.
         loading_screen.destroy()
+
+        # Floating light/dark toggle. Placed on `self` (the window itself)
+        # rather than inside `container`, so it floats above whichever
+        # screen is currently shown without needing changes to any of the
+        # 12 individual screen files -- every widget's color was already
+        # defined in theme.py as a (light, dark) tuple, so CustomTkinter
+        # re-renders the whole app automatically when the mode changes.
+        self._build_theme_toggle()
+
+    def _build_theme_toggle(self):
+        """Small Light/Dark switch shown in the top-right corner on every
+        screen. Defaults to whatever set_appearance_mode() resolved to
+        at startup (the OS setting, when mode is "system")."""
+        current = ctk.get_appearance_mode()  # "Light" or "Dark"
+
+        toggle = ctk.CTkSegmentedButton(
+            self, values=["Light", "Dark"],
+            command=self._on_theme_toggle,
+            width=140, height=30,
+        )
+        toggle.set(current)
+        toggle.place(relx=0.99, rely=0.015, anchor="ne")
+        self._theme_toggle = toggle  # kept as an attribute so it isn't garbage-collected
+
+    def _on_theme_toggle(self, selected: str):
+        ctk.set_appearance_mode("dark" if selected == "Dark" else "light")
 
     def _build_loading_screen(self):
         """A minimal full-window overlay shown only while screens are
