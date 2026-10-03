@@ -1,86 +1,93 @@
-# ExpenseMate — Frontend (Part 1: Auth Module)
+# ExpenseMate — Personal Expense Manager
 
-This is the CustomTkinter frontend for ExpenseMate, covering Day 1 of your
-roadmap: **Register, OTP verification, Login, Forgot Password, Reset
-Password, Update Password, Update Email.**
+A desktop personal finance application built with Python and CustomTkinter, backed by a local SQLite database. Built as a Software Construction course project applying the full Requirements → Design → Construction → Testing → Maintenance lifecycle.
 
-## How to run it
+## Features
+
+- **Authentication** — registration with OTP email verification, login/logout, forgot/reset password, update password, update email
+- **Transactions & Categories** — add, edit, delete, and filter income/expense transactions; default and custom categories
+- **Budgets** — set monthly category budgets, over-budget alerts, 3-month spending-based budget suggestions
+- **Savings Goals** — create goals with optional deadlines, contribute toward them, track progress
+- **Dashboard** — income, expense, and net savings summary at a glance
+- **Reports** — filterable transaction table, category-wise spending breakdown
+- **CSV Import/Export** — export all transactions to CSV; import from CSV with per-row validation (bad rows are skipped and reported, not fatal)
+- **Multi-currency** — enter transactions in PKR, USD, EUR, GBP, AED, or SAR; automatically converted to PKR (the app's base currency) for all totals and budgets
+- **Light/Dark theme** — adapts to the OS appearance setting by default, with a manual toggle
+
+## Tech Stack
+
+- **Language:** Python
+- **UI:** CustomTkinter
+- **Database:** SQLite (local, no server required)
+- **Testing:** Python `unittest`, with `radon` for complexity analysis
+
+## Project Structure
+
+```
+Expense-_Mate-/
+├── app.py                      # Entry point — screen navigation controller
+├── theme.py                    # Centralized colors, fonts, sizes (light/dark pairs)
+├── widgets.py                  # Shared, reusable UI components
+├── backend_interface.py        # Single import surface the frontend calls into
+├── database/
+│   └── database.py             # Schema creation, connection setup, migrations
+├── backend/
+│   ├── models/                 # Data classes (User, Otp)
+│   ├── repositories/           # Raw SQL — one repository per entity
+│   └── services/                # Business logic & validation
+│       ├── auth_service.py
+│       ├── transaction_service.py
+│       ├── budget_service.py
+│       ├── savings_service.py
+│       ├── report_service.py
+│       └── currency_service.py
+├── screens/                     # One CustomTkinter screen per file
+├── tests/                       # Unit tests (one file per service module)
+├── assets/                      # Logo and static assets
+├── requirements.txt
+└── .gitignore
+```
+
+## Setup
 
 ```bash
+# 1. Create and activate a virtual environment
+python -m venv .venv
+.venv\Scripts\activate          # Windows
+source .venv/bin/activate       # macOS/Linux
+
+# 2. Install dependencies
 pip install -r requirements.txt
+
+# 3. Initialize the database
+python -m database.database
+
+# 4. Run the app
 python app.py
 ```
 
-A window opens on the Login screen. Since your friend's real backend
-isn't built yet, this currently runs against a **mock backend**
-(`backend_interface.py`) that stores everything in memory (nothing is
-saved to disk — closing the app resets all "accounts").
+## Running Tests
 
-Try it end-to-end:
-1. Click "Don't have an account? Register" → fill the form → Register.
-2. Check the terminal/console — the mock OTP is printed there, e.g.
-   `[MOCK OTP] OTP for you@example.com is: 483920`
-3. Type that code into the OTP screen → you land back on Login.
-4. Log in with the same email/password → you reach the (placeholder)
-   dashboard, where you can also test Update Password / Update Email /
-   Logout.
+```bash
+# Run everything
+python -m unittest discover tests -v
 
-## What's new in this version
-
-- **Logo & branding**: an original wallet/coin icon (`assets/logo.png`) appears
-  on every screen — full-size on Login/Register's green side panel, a small
-  version in the header of every other screen.
-- **Labeled fields**: every input now has a bold label above it (e.g. "Email
-  Address") plus descriptive placeholder text inside the box (e.g. "Enter
-  your email"), instead of relying on placeholder text alone.
-- **Full window**: the app now opens maximized and is resizable, instead of a
-  small fixed-size box.
-
-## File structure
-
-```
-frontend/
-├── app.py                      # entry point + screen navigation controller
-├── backend_interface.py        # THE CONTRACT with the backend (see below)
-├── theme.py                    # colors/fonts/sizes, change once, applies everywhere
-├── widgets.py                  # reusable styled widget builders (fields, buttons, logo, headers)
-├── requirements.txt
-├── assets/
-│   └── logo.png                # original app icon (wallet + coin), used across all screens
-└── screens/
-    ├── login_screen.py
-    ├── register_screen.py
-    ├── otp_screen.py            # shared by register / forgot-password / update-email
-    ├── forgot_password_screen.py
-    ├── reset_password_screen.py
-    ├── update_password_screen.py
-    ├── update_email_screen.py
-    └── dashboard_placeholder_screen.py   # temporary, replaced in Part 2
+# Run one module
+python -m unittest tests.test_auth_service -v
 ```
 
-## How this connects to your friend's backend
+119 automated unit tests across 5 modules (Auth, Transactions/Categories, Budgets, Savings, CSV/Reports), all passing.
 
-Every screen file only ever calls functions from `backend_interface.py`
-— never the database directly. That file documents the exact function
-names, parameters, and return format (`success, message, data`) that
-your friend's real backend needs to match.
+## Architecture
 
-**On integration day (Day 6 of your roadmap):**
-- Your friend writes her real functions (e.g. in `auth_service.py`,
-  using actual SQLite + password hashing + a real email/OTP service)
-  with the *same function names and same return format*.
-- You swap the mock file for her real module — none of the screen files
-  need to change.
+Layered client-server (local):
 
-This is exactly the kind of clean frontend/backend split the roadmap
-and your SRS (NFR-9: modular design) call for.
+```
+UI (screens/)  →  Services (backend/services/)  →  Repositories (backend/repositories/)  →  SQLite
+```
 
-## What's next (Part 2)
+The UI never queries the database directly — all business logic and validation live in the service layer, and all SQL is isolated in the repository layer.
 
-Once you're happy with this, the next parts follow your roadmap:
-- **Part 2:** Transactions + Categories (Day 2)
-- **Part 3:** Budgets (Day 3)
-- **Part 4:** Savings + real Dashboard with charts (Day 4)
-- **Part 5:** CSV import/export + Reports (Day 5)
+## Documentation
 
-Each part will plug into `backend_interface.py` the same way.
+Full project documentation (SRS, Architecture Diagrams, Test Cases & Results, Metrics Report, Change Log, Final Report) is included in the course submission bundle.
