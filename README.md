@@ -95,7 +95,7 @@ The UI never queries the database directly. All business rules and validation li
 | Member | Role |
 |---|---|
 | Laiba Arshad (Team Lead) | Backend: database, services, repositories, business logic, backend testing |
-| Aiman Arshad | Frontend: CustomTkinter UI, UI/UX, frontend integration, frontend testing |
+| Laiba Siddiqui | Frontend: CustomTkinter UI, UI/UX, frontend integration, frontend testing |
 
 ## Documentation
 
