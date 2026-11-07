@@ -13,9 +13,7 @@ import bcrypt
 from datetime import datetime, timedelta
 
 from backend.repositories.user_repository import UserRepository, OtpRepository
-
-OTP_LENGTH = 6
-OTP_VALIDITY_MINUTES = 10
+from expensemate_config import OTP_LENGTH, OTP_VALIDITY_MINUTES, MIN_PASSWORD_LENGTH
 
 EMAIL_REGEX = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
@@ -35,7 +33,7 @@ def is_valid_email(email: str) -> bool:
 
 
 def is_valid_password(password: str) -> bool:
-    return bool(password) and len(password) >= 6
+    return bool(password) and len(password) >= MIN_PASSWORD_LENGTH
 
 
 def _hash_password(password: str) -> str:
@@ -47,7 +45,7 @@ def _verify_password(password: str, password_hash: str) -> bool:
 
 
 def _generate_otp_code() -> str:
-    return f"{random.randint(100000, 999999)}"
+    return f"{random.randint(10 ** (OTP_LENGTH - 1), 10 ** OTP_LENGTH - 1)}"
 
 
 # ---------------------------------------------------------------------------
@@ -60,7 +58,7 @@ def register_user(username: str, email: str, password: str, confirm_password: st
     if not is_valid_email(email):
         return False, "Please enter a valid email address.", None
     if not is_valid_password(password):
-        return False, "Password must be at least 6 characters long.", None
+        return False, f"Password must be at least {MIN_PASSWORD_LENGTH} characters long.", None
     if password != confirm_password:
         return False, "Passwords do not match.", None
     if _user_repo.get_by_email(email):
@@ -146,7 +144,7 @@ def reset_password(email: str, otp_code: str, new_password: str, confirm_passwor
         return False, msg, None
 
     if not is_valid_password(new_password):
-        return False, "Password must be at least 6 characters long.", None
+        return False, f"Password must be at least {MIN_PASSWORD_LENGTH} characters long.", None
     if new_password != confirm_password:
         return False, "Passwords do not match.", None
 
@@ -168,7 +166,7 @@ def update_password(email: str, old_password: str, new_password: str, confirm_pa
         return False, "Current password is incorrect.", None
 
     if not is_valid_password(new_password):
-        return False, "New password must be at least 6 characters long.", None
+        return False, f"New password must be at least {MIN_PASSWORD_LENGTH} characters long.", None
     if new_password != confirm_password:
         return False, "New passwords do not match.", None
 

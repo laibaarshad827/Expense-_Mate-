@@ -1,0 +1,29 @@
+ExpenseMate - configuration migration verification
+Date            : 2026-11-07 13:33:07
+Real database   : C:\Users\maham\OneDrive\Documents\Github poject\ExpenseMate_SourceCode(24K-3028,34K-3075)\expense_mate.db
+
+BEFORE running the tests:
+   BUDGET             4 rows
+   CATEGORY          14 rows
+   OTP                2 rows
+   SAVINGS_GOAL       1 rows
+   TRANSACTION       12 rows
+   USER               1 rows
+   fingerprint    c574e5229f4060f1...
+
+Running: python -m unittest discover  (this takes about a minute) ...
+   Ran 133 tests in 33.025s
+   OK
+
+AFTER running the tests:
+   BUDGET             4 rows
+   CATEGORY          14 rows
+   OTP                2 rows
+   SAVINGS_GOAL       1 rows
+   TRANSACTION       12 rows
+   USER               1 rows
+   fingerprint    c574e5229f4060f1...
+
+All tests passed          : YES
+Real database untouched   : YES - identical row counts and fingerprint
+RESULT                    : PASS

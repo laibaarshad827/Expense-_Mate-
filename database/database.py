@@ -1,12 +1,15 @@
 """
 Database connection and schema setup for ExpenseMate.
 Creates USER and OTP tables if they don't already exist.
+
+The database file location now comes from expensemate_config.py
+(environment variable EXPENSEMATE_DB, then expensemate.ini, then the default
+expense_mate.db in the project folder) instead of being hard-coded here.
 """
 
 import sqlite3
-from pathlib import Path
 
-DB_PATH = Path(__file__).resolve().parent.parent / "expense_mate.db"
+from expensemate_config import DB_PATH
 
 
 def get_connection() -> sqlite3.Connection:
