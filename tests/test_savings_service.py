@@ -10,7 +10,7 @@ import unittest
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from database.database import init_db, add_day2_tables, add_day4_tables, DB_PATH
-from backend.services.auth_service import register_user, verify_otp
+from backend.controllers.auth_controller import register_user, verify_otp
 from backend.repositories.user_repository import UserRepository, OtpRepository
 from backend.services.savings_service import (
     create_savings_goal, get_savings_goals, get_savings_goal_by_id,

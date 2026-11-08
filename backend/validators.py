@@ -6,7 +6,12 @@ layer and can be used by controllers - and by the legacy modules that are
 rewritten in Part C - without creating a dependency cycle.
 """
 
+import re
 from datetime import date
+
+from expensemate_config import MIN_PASSWORD_LENGTH
+
+EMAIL_REGEX = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
 def is_valid_amount(amount_str):
@@ -30,3 +35,11 @@ def is_valid_date(date_str: str) -> bool:
 
 def is_valid_txn_type(txn_type: str) -> bool:
     return txn_type in ("income", "expense")
+
+
+def is_valid_email(email: str) -> bool:
+    return bool(EMAIL_REGEX.match(email or ""))
+
+
+def is_valid_password(password: str, min_length: int = MIN_PASSWORD_LENGTH) -> bool:
+    return bool(password) and len(password) >= min_length

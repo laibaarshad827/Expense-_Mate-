@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 from database.database import init_db, DB_PATH
 from backend.repositories.user_repository import UserRepository, OtpRepository
-from backend.services.auth_service import (
+from backend.controllers.auth_controller import (
     register_user, send_otp, verify_otp, login_user, logout_user,
     request_password_reset, reset_password, update_password, update_email,
     is_valid_email, is_valid_password,

@@ -42,7 +42,7 @@ class TestLayering(unittest.TestCase):
                             else module == prefix or module.startswith(prefix + ".")
                         # the two real controllers import repositories only to BUILD their service
                         builds_service = (layer == "controllers" and module.startswith("backend.repositories.")
-                                          and path.name in ("transaction_controller.py", "budget_controller.py"))
+                                          and path.name in ("transaction_controller.py", "budget_controller.py", "auth_controller.py"))
                         if hit and not builds_service:
                             self.fail(f"{layer}/{path.name} must not import {module}")
 

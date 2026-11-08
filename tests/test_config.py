@@ -1,3 +1,4 @@
+
 """
 Tests for the configuration migration (Assignment 02, Part A).
 Run with: python -m unittest tests.test_config -v
@@ -14,7 +15,9 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 import expensemate_config as cfg
 from expensemate_config import load_settings
-from backend.services import auth_service
+from backend import validators
+from backend.controllers import auth_controller
+from backend.services.auth_service import OtpGenerator
 
 
 class TestLoadSettings(unittest.TestCase):
@@ -91,29 +94,24 @@ class TestApplicationUsesConfiguration(unittest.TestCase):
 
     def test_generated_otp_has_configured_length(self):
         for _ in range(200):
-            code = auth_service._generate_otp_code()
-            self.assertRegex(code, rf"^[1-9][0-9]{{{auth_service.OTP_LENGTH - 1}}}$")
+            code = OtpGenerator().generate()
+            self.assertRegex(code, rf"^[1-9][0-9]{{{cfg.OTP_LENGTH - 1}}}$")
 
     def test_otp_generation_follows_a_changed_length(self):
-        original = auth_service.OTP_LENGTH
-        try:
-            auth_service.OTP_LENGTH = 8
-            self.assertEqual(len(auth_service._generate_otp_code()), 8)
-        finally:
-            auth_service.OTP_LENGTH = original
+        self.assertEqual(OtpGenerator().length, cfg.OTP_LENGTH)
+        self.assertEqual(len(OtpGenerator(length=8).generate()), 8)
 
     def test_password_rule_and_messages_use_the_configured_minimum(self):
-        n = auth_service.MIN_PASSWORD_LENGTH
-        self.assertTrue(auth_service.is_valid_password("x" * n))
-        self.assertFalse(auth_service.is_valid_password("x" * (n - 1)))
-        ok, msg, _ = auth_service.register_user("A", "a@example.com", "x" * (n - 1), "x" * (n - 1))
+        n = cfg.MIN_PASSWORD_LENGTH
+        self.assertTrue(validators.is_valid_password("x" * n))
+        self.assertFalse(validators.is_valid_password("x" * (n - 1)))
+        ok, msg, _ = auth_controller.register_user("A", "a@example.com", "x" * (n - 1), "x" * (n - 1))
         self.assertFalse(ok)
         self.assertEqual(msg, f"Password must be at least {n} characters long.")
 
     def test_default_messages_are_unchanged_from_assignment_01(self):
-        # With the default configuration the text must be exactly what the UI showed before.
-        self.assertEqual(auth_service.MIN_PASSWORD_LENGTH, 6)
-        ok, msg, _ = auth_service.register_user("A", "a@example.com", "12345", "12345")
+        self.assertEqual(cfg.MIN_PASSWORD_LENGTH, 6)
+        ok, msg, _ = auth_controller.register_user("A", "a@example.com", "12345", "12345")
         self.assertEqual(msg, "Password must be at least 6 characters long.")
 
 
