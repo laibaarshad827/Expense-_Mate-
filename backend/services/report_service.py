@@ -5,12 +5,14 @@ Same (success, message, data) tuple contract as the rest of the backend.
 """
 
 import csv
+from backend.errors import ServiceError
 from backend.repositories.user_repository import UserRepository
-from backend.repositories.transaction_repository import TransactionRepository
-from backend.services.transaction_service import is_valid_amount, is_valid_date, add_transaction
+from backend.repositories.transaction_repository import CategoryRepository, TransactionRepository
+from backend.services.transaction_service import TransactionService
+from backend.validators import is_valid_amount, is_valid_date
 
 _user_repo = UserRepository()
-_txn_repo = TransactionRepository()
+_transactions = TransactionService(_user_repo, CategoryRepository(), TransactionRepository())
 
 CSV_COLUMNS = ["type", "category", "amount", "date", "note"]
 
@@ -29,7 +31,7 @@ def export_transactions_csv(user_email: str, file_path: str):
     if user_id is None:
         return False, "User not found.", None
 
-    rows = _txn_repo.get_transactions(user_id)
+    rows = _transactions.get_transactions(user_email)
     try:
         with open(file_path, "w", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(f, fieldnames=CSV_COLUMNS)
@@ -83,7 +85,7 @@ def import_transactions_csv(user_email: str, file_path: str):
         if txn_type not in ("income", "expense"):
             errors.append(f"Row {i}: invalid type '{txn_type}' (must be income or expense).")
             continue
-        ok, _ = is_valid_amount(amount)
+        ok,clean_amount = is_valid_amount(amount)
         if not ok:
             errors.append(f"Row {i}: invalid amount '{amount}'.")
             continue
@@ -94,11 +96,11 @@ def import_transactions_csv(user_email: str, file_path: str):
             errors.append(f"Row {i}: invalid date '{date_str}' (expected YYYY-MM-DD).")
             continue
 
-        success, message, _ = add_transaction(user_email, txn_type, amount, category, date_str, note)
-        if success:
+        try:
+            _transactions.add_transaction(user_email, txn_type, clean_amount, category, date_str, note)
             imported += 1
-        else:
-            errors.append(f"Row {i}: {message}")
+        except ServiceError as error:
+            errors.append(f"Row {i}: {error}")
 
     skipped = len(rows) - imported
     message = f"Imported {imported} of {len(rows)} rows."
@@ -120,7 +122,8 @@ def get_report_transactions(user_email: str, start_date: str = None, end_date: s
     if user_id is None:
         return []
 
-    rows = _txn_repo.get_transactions(user_id, txn_type, category)
+    rows = _transactions.get_transactions(user_email, txn_type, category)
+
     if start_date:
         rows = [r for r in rows if r["date"] >= start_date]
     if end_date:

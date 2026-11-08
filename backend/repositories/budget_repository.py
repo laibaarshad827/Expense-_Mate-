@@ -52,7 +52,7 @@ class BudgetRepository:
         )
         row = cursor.fetchone()
         conn.close()
-        return round(row["total"], 2)
+        return row["total"]
 
     def get_monthly_spending_history(self, user_id: int, category: str) -> dict:
         conn = get_connection()
@@ -69,3 +69,40 @@ class BudgetRepository:
         rows = cursor.fetchall()
         conn.close()
         return {row["month"]: row["total"] for row in rows}
+
+    def get_spent_by_category(self, user_id: int, month: str) -> dict:
+        """{category: total expense} for one month - one query for all categories."""
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT category, SUM(amount) AS total
+            FROM "TRANSACTION"
+            WHERE user_id = ? AND type = 'expense' AND substr(transaction_date, 1, 7) = ?
+            GROUP BY category
+            """,
+            (user_id, month),
+        )
+        rows = cursor.fetchall()
+        conn.close()
+        return {row["category"]: row["total"] for row in rows}
+
+    def get_spending_history_by_category(self, user_id: int) -> dict:
+        """{category: {month: total expense}} - one query instead of one per category."""
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT category, substr(transaction_date, 1, 7) AS month, SUM(amount) AS total
+            FROM "TRANSACTION"
+            WHERE user_id = ? AND type = 'expense'
+            GROUP BY category, month
+            """,
+            (user_id,),
+        )
+        rows = cursor.fetchall()
+        conn.close()
+        history = {}
+        for row in rows:
+            history.setdefault(row["category"], {})[row["month"]] = row["total"]
+        return history

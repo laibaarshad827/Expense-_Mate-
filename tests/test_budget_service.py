@@ -13,8 +13,8 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 from database.database import init_db, add_day2_tables, add_day3_tables, DB_PATH
 from backend.services.auth_service import register_user, verify_otp
 from backend.repositories.user_repository import UserRepository, OtpRepository
-from backend.services.transaction_service import add_transaction
-from backend.services.budget_service import (
+from backend.controllers.transaction_controller import add_transaction
+from backend.controllers.budget_controller import (
     set_budget, get_budget, get_category_spent, suggest_budget,
     get_budget_status, get_budget_alerts,
 )

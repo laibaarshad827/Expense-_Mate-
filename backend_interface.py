@@ -1,6 +1,10 @@
+"""
+backend_interface.py - the single surface the screens import.
+Dependency direction: screens -> controllers -> services -> repositories -> database
+"""
 
-from backend.services.auth_service import *
-from backend.services.transaction_service import *
-from backend.services.budget_service import *
-from backend.services.savings_service import *
-from backend.services.report_service import *
+from backend.controllers.auth_controller import *
+from backend.controllers.transaction_controller import *
+from backend.controllers.budget_controller import *
+from backend.controllers.savings_controller import *
+from backend.controllers.report_controller import *

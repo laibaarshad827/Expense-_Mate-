@@ -1,98 +1,91 @@
 """
-Budget business logic: set/get budgets, spending calculations,
-budget status, alerts, and suggested budgets.
+Budget business logic: set/get budgets, monthly spending, the monthly budget
+summary (status), alerts and suggested budgets.
 
-Function names, parameters, and return format match the frontend's
-contract file (backend_interface.py) exactly.
+Layer rules: no SQL here and no format checks. The clock is injected so the
+"current month" logic can be tested without waiting for a real month to pass.
 """
 
 from datetime import date
-from backend.repositories.user_repository import UserRepository
-from backend.repositories.transaction_repository import CategoryRepository
-from backend.repositories.budget_repository import BudgetRepository
-from backend.services.transaction_service import is_valid_amount
 
-_user_repo = UserRepository()
-_category_repo = CategoryRepository()
-_budget_repo = BudgetRepository()
+from backend.errors import ServiceError
 
 
-def _user_id_for(user_email: str):
-    user = _user_repo.get_by_email(user_email)
-    return user.user_id if user else None
+class BudgetService:
 
+    def __init__(self, user_repo, category_repo, budget_repo, today=date.today):
+        self._users = user_repo
+        self._categories = category_repo
+        self._budgets = budget_repo
+        self._today = today
 
-def _current_month() -> str:
-    return date.today().strftime("%Y-%m")
+    def _find_user_id(self, user_email):
+        user = self._users.get_by_email(user_email)
+        return user.user_id if user else None
 
+    def _current_month(self):
+        return self._today().strftime("%Y-%m")
 
-def set_budget(user_email: str, category: str, limit):
-    user_id = _user_id_for(user_email)
-    if user_id is None:
-        return False, "User not found.", None
+    # ---- single budget ----
+    def set_budget(self, user_email, category, limit):
+        user_id = self._find_user_id(user_email)
+        if user_id is None:
+            raise ServiceError("User not found.")
+        self._budgets.upsert_budget(user_id, category, limit)
+        return {"category": category, "limit": limit}
 
-    ok, clean_limit = is_valid_amount(limit)
-    if not ok:
-        return False, "Please enter a valid budget amount greater than 0.", None
+    def get_budget(self, user_email, category):
+        user_id = self._find_user_id(user_email)
+        return None if user_id is None else self._budgets.get_budget(user_id, category)
 
-    _budget_repo.upsert_budget(user_id, category, clean_limit)
-    return True, "Budget saved.", {"category": category, "limit": clean_limit}
+    def get_category_spent(self, user_email, category, month=None):
+        user_id = self._find_user_id(user_email)
+        if user_id is None:
+            return 0.0
+        return round(self._budgets.get_category_spent(user_id, category, month or self._current_month()), 2)
 
+    # ---- suggestions ----
+    @staticmethod
+    def _average_of_last_three(monthly):
+        """Average of the last 3 months that had spending, or None without history."""
+        if not monthly:
+            return None
+        last_months = sorted(monthly)[-3:]
+        return round(sum(monthly[m] for m in last_months) / len(last_months), 2)
 
-def get_budget(user_email: str, category: str):
-    user_id = _user_id_for(user_email)
-    if user_id is None:
-        return None
-    return _budget_repo.get_budget(user_id, category)
+    def suggest_budget(self, user_email, category):
+        user_id = self._find_user_id(user_email)
+        if user_id is None:
+            return None
+        return self._average_of_last_three(self._budgets.get_monthly_spending_history(user_id, category))
 
-
-def get_category_spent(user_email: str, category: str, month: str = None) -> float:
-    user_id = _user_id_for(user_email)
-    if user_id is None:
-        return 0.0
-    month = month or _current_month()
-    return _budget_repo.get_category_spent(user_id, category, month)
-
-
-def suggest_budget(user_email: str, category: str):
-    user_id = _user_id_for(user_email)
-    if user_id is None:
-        return None
-
-    monthly = _budget_repo.get_monthly_spending_history(user_id, category)
-    if not monthly:
-        return None
-
-    last_months = sorted(monthly)[-3:]
-    return round(sum(monthly[m] for m in last_months) / len(last_months), 2)
-
-
-def get_budget_status(user_email: str):
-    user_id = _user_id_for(user_email)
-    if user_id is None:
-        return []
-
-    month = _current_month()
-    budgets = _budget_repo.get_all_budgets(user_id)
-    categories = sorted(set(_category_repo.get_categories("expense")) | set(budgets.keys()))
-
-    statuses = []
-    for cat in categories:
-        limit = budgets.get(cat)
-        spent = _budget_repo.get_category_spent(user_id, cat, month)
-        remaining = round(limit - spent, 2) if limit else None
-        percent = round((spent / limit) * 100, 1) if limit else None
-        statuses.append({
-            "category": cat,
+    # ---- monthly budget summary ----
+    @staticmethod
+    def _summarise(category, limit, spent, history):
+        return {
+            "category": category,
             "limit": limit,
             "spent": spent,
-            "remaining": remaining,
-            "percent": percent,
+            "remaining": round(limit - spent, 2) if limit else None,
+            "percent": round((spent / limit) * 100, 1) if limit else None,
             "over_budget": bool(limit and spent > limit),
-            "suggested": suggest_budget(user_email, cat) if not limit else None,
-        })
-    return statuses
+            "suggested": None if limit else BudgetService._average_of_last_three(history),
+        }
 
+    def get_budget_status(self, user_email):
+        user_id = self._find_user_id(user_email)
+        if user_id is None:
+            return []
 
-def get_budget_alerts(user_email: str):
-    return [s for s in get_budget_status(user_email) if s["over_budget"]]
+        budgets = self._budgets.get_all_budgets(user_id)
+        spent_by_category = self._budgets.get_spent_by_category(user_id, self._current_month())
+        history = self._budgets.get_spending_history_by_category(user_id)
+        categories = sorted(set(self._categories.get_categories("expense")) | set(budgets))
+
+        return [
+            self._summarise(cat, budgets.get(cat), round(spent_by_category.get(cat, 0), 2), history.get(cat))
+            for cat in categories
+        ]
+
+    def get_budget_alerts(self, user_email):
+        return [s for s in self.get_budget_status(user_email) if s["over_budget"]]

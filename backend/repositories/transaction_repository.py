@@ -1,5 +1,6 @@
 from typing import Optional, List
 from database.database import get_connection
+from backend.models.transaction import Transaction
 
 
 class CategoryRepository:
@@ -39,18 +40,6 @@ class CategoryRepository:
 
 class TransactionRepository:
 
-    def _to_mock_shape(self, row: dict) -> dict:
-        """Remap DB column names to match the exact keys the frontend expects
-        (id, type, amount, category, date, note) — matching backend_interface.py's mock."""
-        return {
-            "id": row["transaction_id"],
-            "type": row["type"],
-            "amount": row["amount"],
-            "category": row["category"],
-            "date": row["transaction_date"],
-            "note": row["note"],
-        }
-
     def create_transaction(self, user_id: int, txn_type: str, amount: float,
                             category: str, txn_date: str, note: str) -> int:
         conn = get_connection()
@@ -68,7 +57,7 @@ class TransactionRepository:
         return new_id
 
     def get_transactions(self, user_id: int, txn_type: Optional[str] = None,
-                          category: Optional[str] = None) -> List[dict]:
+                          category: Optional[str] = None) -> List[Transaction]:
         conn = get_connection()
         cursor = conn.cursor()
         query = 'SELECT * FROM "TRANSACTION" WHERE user_id = ?'
@@ -83,9 +72,9 @@ class TransactionRepository:
         cursor.execute(query, params)
         rows = cursor.fetchall()
         conn.close()
-        return [self._to_mock_shape(dict(row)) for row in rows]
+        return [Transaction.from_row(row) for row in rows]
 
-    def get_by_id(self, user_id: int, txn_id: int) -> Optional[dict]:
+    def get_by_id(self, user_id: int, txn_id: int) -> Optional[Transaction]:
         conn = get_connection()
         cursor = conn.cursor()
         cursor.execute(
@@ -94,7 +83,7 @@ class TransactionRepository:
         )
         row = cursor.fetchone()
         conn.close()
-        return self._to_mock_shape(dict(row)) if row else None
+        return Transaction.from_row(row) if row else None
 
     def update_transaction(self, txn_id: int, amount: float, category: str,
                             txn_date: str, note: str) -> None:

@@ -8,7 +8,7 @@ and same naming style as auth/transaction/budget services.
 
 from backend.repositories.user_repository import UserRepository
 from backend.repositories.savings_repository import SavingsRepository
-from backend.services.transaction_service import is_valid_amount, is_valid_date
+from backend.validators import is_valid_amount, is_valid_date
 
 _user_repo = UserRepository()
 _savings_repo = SavingsRepository()

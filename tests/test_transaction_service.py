@@ -12,7 +12,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 from database.database import init_db, add_day2_tables, DB_PATH
 from backend.services.auth_service import register_user, verify_otp
 from backend.repositories.user_repository import UserRepository, OtpRepository
-from backend.services.transaction_service import (
+from backend.controllers.transaction_controller import (
     get_categories, add_category, is_valid_amount, is_valid_date,
     add_transaction, get_transactions, get_transaction_by_id,
     update_transaction, delete_transaction, get_dashboard_summary,
